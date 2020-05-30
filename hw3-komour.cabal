@@ -1,62 +1,35 @@
-cabal-version: 1.12
-
--- This file has been generated from package.yaml by hpack version 0.33.0.
---
--- see: https://github.com/sol/hpack
---
--- hash: c287c06f52d96fed7afc44fe022e05c874452cd80becc6ac85e0464cc4ee75b5
-
 name:           hw3-komour
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/komour/hw3-komour#readme>
-homepage:       https://github.com/komour/hw3-komour#readme
-bug-reports:    https://github.com/komour/hw3-komour/issues
+description:    Homework 3 for ITMO FP Course
+
+homepage:       https://github.com/fp-ctd-itmo/hw3-komour
+license:        MIT
+license-file:   LICENSE
 author:         Andrey Komarov
 maintainer:     komaroff404@gmail.com
 copyright:      2020 Andrey Komarov
-license:        BSD3
-license-file:   LICENSE
-build-type:     Simple
-extra-source-files:
-    README.md
-    ChangeLog.md
 
-source-repository head
-  type: git
-  location: https://github.com/komour/hw3-komour
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+tested-with:         GHC == 8.0.1
 
 library
-  exposed-modules:
-      Lib
-  other-modules:
-      Paths_hw3_komour
-  hs-source-dirs:
-      src
-  build-depends:
-      base >=4.7 && <5
-  default-language: Haskell2010
-
-executable hw3-komour-exe
-  main-is: Main.hs
-  other-modules:
-      Paths_hw3_komour
-  hs-source-dirs:
-      app
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
-    , hw3-komour
-  default-language: Haskell2010
+  hs-source-dirs:      src
+  exposed-modules:     Task1
+  ghc-options:         -Wall
+  build-depends:       base >=4.7 && <5
+  default-language:    Haskell2010
 
 test-suite hw3-komour-test
-  type: exitcode-stdio-1.0
-  main-is: Spec.hs
-  other-modules:
-      Paths_hw3_komour
-  hs-source-dirs:
-      test
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
-  build-depends:
-      base >=4.7 && <5
-    , hw3-komour
-  default-language: Haskell2010
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  build-depends:       base >= 4.9 && < 5
+                     , hw3-komour
+                     , tasty
+                     , tasty-hspec
+  ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010
+  -- other-modules:       AllTests
