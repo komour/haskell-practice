@@ -1,4 +1,10 @@
 module Main where
 
+import           AllTests   (allTestsTree)
+import           Test.Tasty
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main =
+  allTestsTree >>= \unitTests ->
+    let allTests = testGroup "unit-tests" [unitTests]
+     in defaultMain allTests

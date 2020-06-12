@@ -28,24 +28,18 @@ distance :: Point ->  Point -> Double
 distance a b = sqrt $ fromIntegral $ scalarProduct sub sub
   where sub = b `minus` a
 
--- | Helper function with memorization of the first element to calculate perimeter of the polygon
-perimHelper  :: Point -> [Point] -> Double
-perimHelper _ [] = 0
-perimHelper first [x] = distance x first
-perimHelper first (x:xs) = distance x (head xs) + perimHelper first xs 
+-- | Helper function to calculate `func` in each neighbour points of the polygon
+helper  :: (Num a) => (Point -> Point -> a) -> Point -> [Point] -> a
+helper _ _ [] = 0
+helper func first [x] = func x first
+helper func first (x:xs) = func x (head xs) + helper func first xs 
 
 -- | Calculate perimeter of the polygon 
 perimeter  :: [Point] -> Double
 perimeter [] = 0
-perimeter list@(first:_) = perimHelper first list
+perimeter list@(first:_) = helper distance first list
 
 -- | Calculate double area of the polygon 
 doubleArea :: [Point] -> Int
 doubleArea [] = 0
-doubleArea list@(first:_) = areaHelper first list
-
--- | Helper function with memorization of the first element to calculate double area of the polygon
-areaHelper  :: Point -> [Point] -> Int
-areaHelper _ [] = 0
-areaHelper first [x] = crossProduct x first
-areaHelper first (x:xs) = crossProduct x (head xs) + areaHelper first xs 
+doubleArea list@(first:_) = helper crossProduct first list
