@@ -1,4 +1,4 @@
-module Task1
+module Task1Naive
   ( Point(..)
   , plus
   , minus
@@ -8,16 +8,14 @@ module Task1
   , doubleArea
   ) where
 
---{-# LANGUAGE BangPatterns #-}
-
 import           Control.DeepSeq (NFData, rnf)
 
-data Point = Point !Int !Int
+data Point = Point Int Int
     deriving (Show)
 
 instance NFData Point where
   rnf (Point x y) = rnf x `seq` rnf y
-
+  
 plus :: Point -> Point -> Point
 plus (Point x1 y1) (Point x2 y2) = Point (x1 + x2) $ y1 + y2
 
