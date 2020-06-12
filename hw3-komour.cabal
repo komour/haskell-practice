@@ -21,6 +21,7 @@ library
   ghc-options:         -Wall
   build-depends:       base >=4.7 && <5
                      , microlens
+                     , deepseq
   default-language:    Haskell2010
 
 test-suite hw3-tests
@@ -34,3 +35,13 @@ test-suite hw3-tests
   ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   other-modules:       AllTests
   default-language:    Haskell2010
+
+benchmark hw3-benchmark
+  build-depends:    base
+                  , criterion
+                  , hw3-komour
+  default-language: Haskell2010
+  ghc-options:      -Wall -Werror -threaded -rtsopts -with-rtsopts=-N -O69
+  hs-source-dirs:   bench
+  main-is:          Main.hs
+  type:             exitcode-stdio-1.0

@@ -8,8 +8,13 @@ module Task1
   , doubleArea
   ) where
 
+import           Control.DeepSeq (NFData, rnf)
+
 data Point = Point Int Int
     deriving (Show)
+
+instance NFData Point where
+  rnf (Point x y) = rnf x `seq` rnf y
 
 plus :: Point -> Point -> Point
 plus (Point x1 y1) (Point x2 y2) = Point (x1 + x2) $ y1 + y2
@@ -28,18 +33,18 @@ distance :: Point ->  Point -> Double
 distance a b = sqrt $ fromIntegral $ scalarProduct sub sub
   where sub = b `minus` a
 
--- | Helper function to calculate `func` in each neighbour points of the polygon
-helper  :: (Num a) => (Point -> Point -> a) -> Point -> [Point] -> a
-helper _ _ [] = 0
-helper func first [x] = func x first
-helper func first (x:xs) = func x (head xs) + helper func first xs 
+-- | Helper function to calculate given function in each neighbour points of the polygon
+calculate  :: (Num a) => (Point -> Point -> a) -> Point -> [Point] -> a
+calculate _ _ []            = 0
+calculate func first [x]    = func x first
+calculate func first (x:xs) = func x (head xs) + calculate func first xs
 
--- | Calculate perimeter of the polygon 
+-- | Calculate perimeter of the polygon
 perimeter  :: [Point] -> Double
-perimeter [] = 0
-perimeter list@(first:_) = helper distance first list
+perimeter []             = 0
+perimeter list@(first:_) = calculate distance first list
 
--- | Calculate double area of the polygon 
+-- | Calculate double area of the polygon
 doubleArea :: [Point] -> Int
-doubleArea [] = 0
-doubleArea list@(first:_) = helper crossProduct first list
+doubleArea []             = 0
+doubleArea list@(first:_) = calculate crossProduct first list
