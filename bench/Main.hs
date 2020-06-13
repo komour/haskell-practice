@@ -16,22 +16,22 @@ generatePolygon = [T.Point x 0 | x <- [0..5000000]] ++ [T.Point 5000000 y | y <-
 
 benchPerimeter :: Benchmark
 benchPerimeter = bench "perimiter" $ nf T.perimeter generatePolygon
---time                 988.7 ms   (307.2 ms .. 2.566 s)
+--time                 82.52 ms   (71.48 ms .. 91.74 ms)
 
 benchPerimeterNaive :: Benchmark
 benchPerimeterNaive = bench "perimeter-naive" $ nf N.perimeter generatePolygonNaive
 --time                 607.9 ms   (317.3 ms .. 1.247 s)
 
+benchArea :: Benchmark
+benchArea = bench "area" $ nf T.doubleArea generatePolygon
+--time                 78.33 ms   (76.01 ms .. 81.66 ms)
+
 benchAreaNaive :: Benchmark
 benchAreaNaive = bench "area-naive" $ nf N.doubleArea generatePolygonNaive
 --time                 596.3 ms   (313.3 ms .. 1.180 s)
 
-benchArea :: Benchmark
-benchArea = bench "area" $ nf T.doubleArea generatePolygon
---time                 489.3 ms   (-42.04 ms .. 864.4 ms)
-
 perimeterBenchmark :: Benchmark
-perimeterBenchmark = bgroup "Perimeter Benchmark" [benchPerimeterNaive, benchPerimeter]
+perimeterBenchmark = bgroup "Perimeter Benchmark" [benchPerimeter, benchPerimeterNaive]
 
 areaBenchmark :: Benchmark
-areaBenchmark = bgroup "Area Benchmark" [benchAreaNaive, benchArea]
+areaBenchmark = bgroup "Area Benchmark" [benchArea, benchAreaNaive]

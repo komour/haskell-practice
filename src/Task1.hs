@@ -1,3 +1,5 @@
+{-# LANGUAGE BangPatterns #-}
+
 module Task1
   ( Point(..)
   , plus
@@ -7,8 +9,6 @@ module Task1
   , perimeter
   , doubleArea
   ) where
-
---{-# LANGUAGE BangPatterns #-}
 
 import           Control.DeepSeq (NFData, rnf)
 
@@ -37,17 +37,17 @@ distance a b = sqrt $ fromIntegral $ scalarProduct sub sub
     sub = b `minus` a
 
 -- | Helper-function to calculate given function in each two neighbour points of the polygon
-calculate :: (Num a) => (Point -> Point -> a) -> Point -> [Point] -> a
-calculate _ _ []            = 0
-calculate func first [x]    = func x first
-calculate func first (x:xs) = func x (head xs) + calculate func first xs
+calculate :: (Num a) => a -> (Point -> Point -> a) -> Point -> [Point] -> a
+calculate acc _ _ []            = acc
+calculate !acc func first [x]    = calculate (acc + func x first) func first []
+calculate !acc func first (x:xs) = calculate (acc + func x (head xs)) func first xs
 
 -- | Calculate perimeter of the polygon
 perimeter :: [Point] -> Double
 perimeter []             = 0
-perimeter list@(first:_) = calculate distance first list
+perimeter list@(first:_) = calculate 0 distance first list
 
 -- | Calculate double area of the polygon
 doubleArea :: [Point] -> Int
 doubleArea []             = 0
-doubleArea list@(first:_) = calculate crossProduct first list
+doubleArea list@(first:_) = calculate 0 crossProduct first list
