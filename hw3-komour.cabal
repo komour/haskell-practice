@@ -19,10 +19,13 @@ library
   hs-source-dirs:      src
   exposed-modules:     Task1
                      , Task1Naive
+                     , Task5
   ghc-options:         -Wall
   build-depends:       base >=4.7 && <5
                      , microlens
                      , deepseq
+                     , directory
+                     , filepath
   default-language:    Haskell2010
 
 test-suite hw3-tests

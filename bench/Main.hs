@@ -20,7 +20,7 @@ benchPerimeter = bench "perimiter" $ nf T.perimeter generatePolygon
 
 benchPerimeterNaive :: Benchmark
 benchPerimeterNaive = bench "perimeter-naive" $ nf N.perimeter generatePolygonNaive
---time                 607.9 ms   (317.3 ms .. 1.247 s)
+--time                 1.151 s    (311.3 ms .. 3.052 s)
 
 benchArea :: Benchmark
 benchArea = bench "area" $ nf T.doubleArea generatePolygon
