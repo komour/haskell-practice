@@ -6,11 +6,13 @@ module Lenses where
 --    , contents
 --    ) where
 
+import           Data.List             (isPrefixOf, foldl')
 import           Lens.Micro
 import           Lens.Micro.Extras
 import           System.Directory      (doesDirectoryExist, doesFileExist,
                                         listDirectory)
-import           System.FilePath.Posix (takeFileName, (</>))
+import           System.FilePath.Posix (splitExtension, takeFileName, (<.>),
+                                        (</>))
 
 data FS = Dir
     { _name     :: FilePath
@@ -21,7 +23,7 @@ data FS = Dir
     }
 --    deriving Show
 
--- | Helper function to draw a tree taken from `Data.Tree`
+-- | Helper function to draw a tree taken from `Data.Tree`.
 draw :: FS -> [String]
 draw (File fn       ) = [fn]
 draw (Dir dn content) = lines dn ++ drawSubTrees content
@@ -45,7 +47,8 @@ getDirectory path = do
     if dirExists
     then do
       children <- listDirectory path
-      let pathsList = fmap (path </>) children
+      let onlyVisible = filter (not . isPrefixOf ".") children
+      let pathsList = fmap (path </>) onlyVisible
       scannedChildren <- traverse getDirectory pathsList
       return Dir { _name = takeFileName path, _contents = scannedChildren }
     else if fileExists
@@ -55,8 +58,12 @@ getDirectory path = do
 name :: Lens' FS FilePath
 name = lens _name (\f fileName -> f { _name = fileName })
 
-contents :: Lens' FS [FS]
-contents = lens _contents (\d dirContents -> d { _contents = dirContents})
+-- | Bad lens for our ADT.
+pseudoContents :: Lens' FS [FS]
+pseudoContents = lens _contents (\d dirContents -> d { _contents = dirContents})
+
+contents :: Traversal' FS [FS]
+contents = _Dir . pseudoContents
 
 _File :: Traversal' FS FS
 _File f (File a)  = f $ File a
@@ -74,19 +81,55 @@ test4 = preview _Dir $ Dir { _name = "zulul", _contents = [File { _name = "x)" }
 
 -- ######### Task 6 ######### --
 
--- | Some FS tree to test lenses and stuff
+-- | Some FS tree to test lenses and stuff.
 testDir :: FS
-testDir = Dir {_name = "test", _contents = [File {_name = ".DS_Store"},File {_name = "file"},Dir {_name = "1", _contents = [File {_name = ".DS_Store"},File {_name = "file2"},Dir {_name = "777", _contents = [File {_name = "dummyFile"},File {_name = ".DS_Store"},File {_name = "kekFile"}]},File {_name = "file1"},Dir {_name = "4", _contents = [File {_name = ".DS_Store"},File {_name = "someFile"},Dir {_name = "5", _contents = [File {_name = ".DS_Store"},File {_name = "anotherFile"},Dir {_name = "7", _contents = []},Dir {_name = "6", _contents = []}]}]}]},Dir {_name = "3", _contents = [File {_name = "3file3"}]},Dir {_name = "2", _contents = []}]}
+testDir = Dir {_name = "test", _contents = [File {_name = "file"},Dir {_name = "1", _contents = [File {_name = "file2"},Dir {_name = "777", _contents = [File {_name = "dummyFile"},File {_name = "kekFile"}]},File {_name = "file1"},Dir {_name = "4", _contents = [File {_name = "someFile"},Dir {_name = "5", _contents = [File {_name = "anotherFile"},Dir {_name = "7", _contents = []},Dir {_name = "6", _contents = []}]}]}]},Dir {_name = "3", _contents = [File {_name = "3file3"}]},Dir {_name = "2", _contents = []}]}
 
 cd :: FilePath -> Traversal' FS FS
-cd path = _Dir . contents . traversed . filtered (\someDir -> someDir ^. _Dir . name == path)
+cd path = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name == path)
 
 file :: FilePath -> Traversal' FS FilePath
-file path = _Dir . contents . traversed . filtered (\someFile -> someFile ^. _File . name == path) . name
+file path = contents . traversed . filtered (\someFile -> someFile ^. _File . name == path) . name
 
 ls :: Traversal' FS FilePath
-ls = _Dir . contents . traversed . name
+ls = contents . traversed . name
 
 cdTest = testDir ^? cd "1" . file "file"
 lsTest = testDir ^.. cd "1" . cd "777" . ls
 
+-- ######### Task 7 ######### --
+
+-- | Lens for reading and writing to the extension (from hackage).
+extension :: Lens' FilePath FilePath
+extension f p = (n <.>) <$> f e
+ where
+  (n, e) = splitExtension p
+
+-- | Set new extension for every file in the current directory.
+changeExtension :: FilePath -> FS -> FS
+changeExtension newExt = contents . traversed . _File . name . extension .~ newExt
+
+-- | Returns list with all names in the given FS tree.
+collectNames :: FS -> [FilePath]
+collectNames root = (root ^. name) : walker root
+  where walker fs = fs ^.. ls ++ concatMap walker (fs ^. contents)
+
+--dir :: FilePath -> Traversal' FS FilePath
+--dir dirName = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name == dirName) . name
+
+-- | Remove given dir from the `_contents`.
+-- In case of (^..) returns `_contents` w/o given dir.
+rmDir :: FilePath -> Traversal' FS FS
+rmDir dirName = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name /= dirName)
+
+-- | Remove given dir if it's empty.
+-- Returns FS.
+rmEmptyDir :: FilePath -> FS -> FS
+rmEmptyDir nm fs = case fs ^? cd nm of
+                     Just dir -> if dir ^.. ls /= [] then fs else fs {_contents = fs ^.. rmDir nm}
+                     Nothing -> fs
+
+-- ######### Task 7 HARD ######### --
+
+getPath :: FS -> FilePath -> FilePath
+getPath = undefined
