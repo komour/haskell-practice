@@ -56,10 +56,12 @@ name = lens _name (\file fileName -> file { _name = fileName })
 contents :: Lens' FS [FS]
 contents = lens _contents (\dir dirContents -> dir { _contents = dirContents})
 
-_File :: Traversal' FS FilePath
-_File f (File a)  = File <$> f a
+_File :: Traversal' FS FS
+_File f (File a)  = f $ File a
 _File _ (Dir b c) = pure (Dir b c)
 
---_Dir :: Traversal' FS ???
---_Dir f (Dir a b) = undefined
---_Dir _ (File c)  = pure $ File c
+_Dir :: Traversal' FS FS
+_Dir f (Dir a b) = f $ Dir a b
+_Dir _ (File c)  = pure $ File c
+
+test = _File.name .~ "kuk" $ File { _name = "keke" }
