@@ -6,7 +6,7 @@ module Lenses where
 --    , contents
 --    ) where
 
-import           Data.List             (isPrefixOf, foldl')
+import           Data.List             (foldl', isPrefixOf)
 import           Lens.Micro
 import           Lens.Micro.Extras
 import           System.Directory      (doesDirectoryExist, doesFileExist,
@@ -86,15 +86,15 @@ testDir :: FS
 testDir = Dir {_name = "test", _contents = [File {_name = "file"},Dir {_name = "1", _contents = [File {_name = "file2"},Dir {_name = "777", _contents = [File {_name = "dummyFile"},File {_name = "kekFile"}]},File {_name = "file1"},Dir {_name = "4", _contents = [File {_name = "someFile"},Dir {_name = "5", _contents = [File {_name = "anotherFile"},Dir {_name = "7", _contents = []},Dir {_name = "6", _contents = []}]}]}]},Dir {_name = "3", _contents = [File {_name = "3file3"}]},Dir {_name = "2", _contents = []}]}
 
 cd :: FilePath -> Traversal' FS FS
-cd path = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name == path)
+cd path = contents . traversed . _Dir . filtered (\someDir -> someDir ^. name == path)
 
 file :: FilePath -> Traversal' FS FilePath
-file path = contents . traversed . filtered (\someFile -> someFile ^. _File . name == path) . name
+file path = contents . traversed . _File . filtered (\someFile -> someFile ^. name == path) . name
 
 ls :: Traversal' FS FilePath
 ls = contents . traversed . name
 
-cdTest = testDir ^? cd "1" . file "file"
+cdTest = testDir ^? cd "1" . cd "777" . file "dummyFile"
 lsTest = testDir ^.. cd "1" . cd "777" . ls
 
 -- ######### Task 7 ######### --
@@ -115,18 +115,18 @@ collectNames root = (root ^. name) : walker root
   where walker fs = fs ^.. ls ++ concatMap walker (fs ^. contents)
 
 --dir :: FilePath -> Traversal' FS FilePath
---dir dirName = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name == dirName) . name
+--dir dirName = contents . traversed . _Dir . filtered (\someDir -> someDir ^. name == dirName) . name
 
 -- | Remove given dir from the `_contents`.
 -- In case of (^..) returns `_contents` w/o given dir.
 rmDir :: FilePath -> Traversal' FS FS
-rmDir dirName = contents . traversed . filtered (\someDir -> someDir ^. _Dir . name /= dirName)
+rmDir dirName = contents . traversed . _Dir . filtered (\someDir -> someDir ^. name /= dirName)
 
 -- | Remove given dir if it's empty.
 -- Returns FS.
 rmEmptyDir :: FilePath -> FS -> FS
 rmEmptyDir nm fs = case fs ^? cd nm of
-                     Just dir -> if dir ^.. ls /= [] then fs else fs {_contents = fs ^.. rmDir nm}
+                     Just dir -> if dir ^.. ls /= [] then fs else over contents (const (fs ^.. rmDir nm)) fs
                      Nothing -> fs
 
 -- ######### Task 7 HARD ######### --
