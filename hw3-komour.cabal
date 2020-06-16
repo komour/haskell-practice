@@ -19,7 +19,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Task1
                      , Task1Naive
-                     , Task5
+                     , Lenses
   ghc-options:         -Wall
   build-depends:       base >=4.7 && <5
                      , microlens
