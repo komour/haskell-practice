@@ -1,26 +1,28 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module Task5
     ( getDirectory
+    , name
+    , contents
     ) where
 
+import           Lens.Micro
+--import           Lens.Micro.Extras
 import           System.Directory      (doesDirectoryExist, doesFileExist,
                                         listDirectory)
 import           System.FilePath.Posix (takeFileName, (</>))
---import Lens.Micro
 
 data FS = Dir
-    { name     :: FilePath
-    , contents :: [FS]
+    { _name     :: FilePath
+    , _contents :: [FS]
     }
     | File
-    { name :: FilePath
+    { _name :: FilePath
     }
+--    deriving Show
 
 -- | Helper function to draw a tree taken from `Data.Tree`
 draw :: FS -> [String]
-draw (File nm       ) = [nm]
-draw (Dir nm content) = lines nm ++ drawSubTrees content
+draw (File fn       ) = [fn]
+draw (Dir dn content) = lines dn ++ drawSubTrees content
   where
     drawSubTrees []       = []
     drawSubTrees [t     ] = "|" : shift "`- " "   " (draw t)
@@ -43,7 +45,21 @@ getDirectory path = do
       children <- listDirectory path
       let pathsList = fmap (path </>) children
       scannedChildren <- traverse getDirectory pathsList
-      return Dir { name = takeFileName path, contents = scannedChildren }
+      return Dir { _name = takeFileName path, _contents = scannedChildren }
     else if fileExists
-     then return File { name = takeFileName path }
+     then return File { _name = takeFileName path }
      else fail $ "\"" ++ path ++ "\" does not exist. "
+
+name :: Lens' FS FilePath
+name = lens _name (\file fileName -> file { _name = fileName })
+
+contents :: Lens' FS [FS]
+contents = lens _contents (\dir dirContents -> dir { _contents = dirContents})
+
+_File :: Traversal' FS FilePath
+_File f (File a)  = File <$> f a
+_File _ (Dir b c) = pure (Dir b c)
+
+--_Dir :: Traversal' FS ???
+--_Dir f (Dir a b) = undefined
+--_Dir _ (File c)  = pure $ File c
