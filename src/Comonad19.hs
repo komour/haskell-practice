@@ -7,7 +7,13 @@ import           Control.Monad   (liftM2)
 
 data ListZipper a = LZ [a] a [a]
 
-newtype Grid a = Grid { unGrid :: ListZipper (ListZipper a) }  -- 2D grid
+newtype Grid a = Grid { unGrid :: ListZipper (ListZipper a) }
+
+newtype KekBool = KekBool Bool
+
+instance Show KekBool where
+  show (KekBool True)  = "🤓"
+  show (KekBool False) = "💀"
 
 instance Functor ListZipper where
   fmap :: (a -> b) -> ListZipper a -> ListZipper b
@@ -36,7 +42,7 @@ instance Comonad Grid where
 iterateTail :: (a -> a) -> a -> [a]
 iterateTail f = tail . iterate f
 
-genericMove :: (z a -> z a) -> (z a -> z a) -> z a -> ListZipper (z a)
+genericMove :: (a -> a) -> (a -> a) -> a -> ListZipper a
 genericMove f g e = LZ (iterateTail f e) e (iterateTail g e)
 
 listLeft :: ListZipper a -> ListZipper a
@@ -49,9 +55,6 @@ listRight _                = error "listRight"
 
 listWrite :: a -> ListZipper a -> ListZipper a
 listWrite x (LZ ls _ rs) = LZ ls x rs
-
-toList :: ListZipper a -> Int -> [a]
-toList (LZ ls x rs) n = reverse (take n ls) ++ [x] ++ take n rs
 
 up, down :: Grid a -> Grid a
 up   (Grid g) = Grid (listLeft  g)
@@ -91,7 +94,23 @@ rule g = case aliveNeighbours g of -- TODO
      2 -> extract g
      3 -> True
      _ -> False
-     
+
 evolve :: Grid Bool -> Grid Bool -- TODO
 evolve = extend rule
+
+initBoolLZ :: ListZipper KekBool
+initBoolLZ = genericMove id id (KekBool True)
+
+initBoolGrid :: Grid KekBool
+initBoolGrid = Grid $ duplicate initBoolLZ
+
+gridToList :: Int -> Grid a -> [[a]]
+gridToList n = fmap (toList n) . toList n . unGrid
+
+printGrid :: Show a => Grid a -> IO ()
+printGrid g = putStrLn $ concatMap (\list -> concatMap (\e -> show e ++ " ") list ++ "\n") list2
+  where list2 = gridToList 10 g
+
+toList :: Int -> ListZipper a -> [a]
+toList n (LZ ls x rs) = reverse (take n ls) ++ [x] ++ take n rs
 

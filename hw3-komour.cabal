@@ -20,6 +20,7 @@ library
   exposed-modules:     Task1
                      , Task1Naive
                      , Lenses
+                     , Comonad19
   ghc-options:         -Wall
   build-depends:       base >=4.7 && <5
                      , microlens
