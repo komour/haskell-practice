@@ -28,6 +28,8 @@ library
                      , directory
                      , filepath
                      , comonad
+                     , process
+                     , random
   default-language:    Haskell2010
 
 test-suite hw3-tests

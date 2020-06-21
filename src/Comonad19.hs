@@ -3,17 +3,27 @@
 module Comonad19 where
 
 import           Control.Comonad
-import           Control.Monad   (liftM2)
+import           Control.Concurrent (threadDelay)
+import           Control.Monad      (liftM2)
+import           System.Process     (callCommand)
+--import           System.Random
 
 data ListZipper a = LZ [a] a [a]
 
 newtype Grid a = Grid { unGrid :: ListZipper (ListZipper a) }
 
-newtype KekBool = KekBool Bool
+data Status = Incubative
+    | Symptomatic
+    | Immune
+    | Susceptible
 
-instance Show KekBool where
-  show (KekBool True)  = "🤓"
-  show (KekBool False) = "💀"
+data Fellow = Fellow Status Int
+
+instance Show Fellow where
+  show (Fellow Susceptible _) = " "
+  show (Fellow Incubative _)  = "#"
+  show (Fellow Symptomatic _) = "#"
+  show (Fellow Immune _)      = "@"
 
 instance Functor ListZipper where
   fmap :: (a -> b) -> ListZipper a -> ListZipper b
@@ -21,7 +31,7 @@ instance Functor ListZipper where
 
 instance Functor Grid where
   fmap :: (a -> b) -> Grid a -> Grid b
-  fmap f g = Grid $ LZ (fmap f <$> l) (fmap f s) (fmap f <$> r)
+  fmap f g = Grid $ LZ (fmap f <$> l) (fmap f s) $ fmap f <$> r
     where
       LZ l s r = unGrid g
 
@@ -38,6 +48,11 @@ instance Comonad Grid where
 
   duplicate :: Grid a -> Grid (Grid a)
   duplicate = Grid . fmap horizontal . vertical
+
+incubDays, symptomDays, immunDays :: Int
+incubDays = 3
+symptomDays = 3
+immunDays = 3
 
 iterateTail :: (a -> a) -> a -> [a]
 iterateTail f = tail . iterate f
@@ -77,38 +92,53 @@ horizontal, vertical :: Grid a -> ListZipper (Grid a)
 horizontal = genericMove left right
 vertical   = genericMove up   down
 
-kekPredicate :: KekBool -> Bool
-kekPredicate (KekBool True) = True
-kekPredicate (KekBool False) = False
+isInfect :: Fellow -> Bool
+isInfect (Fellow Incubative _)  = True
+isInfect (Fellow Symptomatic _) = True
+isInfect (Fellow _ _)           = False
 
-aliveCount :: [KekBool] -> Int
-aliveCount = length . filter kekPredicate
+infectCount :: [Fellow] -> Int
+infectCount = length . filter isInfect
 
 neighbours :: [Grid a -> Grid a]
 neighbours = horizontals ++ verticals ++ liftM2 (.) horizontals verticals
   where horizontals = [left, right]
         verticals   = [up, down]
 
-aliveNeighbours :: Grid KekBool -> Int
-aliveNeighbours g = aliveCount
+infectNeighbours :: Grid Fellow -> Int
+infectNeighbours g = infectCount
                   $ map (\direction -> extract $ direction g) neighbours
 
-rule :: Grid KekBool -> KekBool
-rule g = case aliveNeighbours g of -- TODO
-     8 -> extract g
-     _ -> KekBool False
+rule :: Double -> Int -> Int -> Int -> Grid Fellow -> Fellow
+rule p incub symptom immune g = case infectNeighbours g of -- TODO
+     0 -> case extract g of
+            Fellow Susceptible x -> Fellow Susceptible x
+            Fellow Immune 0      -> Fellow Susceptible 0
+            Fellow Immune x      -> Fellow Immune $ x - 1
+            Fellow Incubative 0  -> Fellow Symptomatic symptom
+            Fellow Incubative x  -> Fellow Incubative $ x - 1
+            Fellow Symptomatic 0 -> Fellow Immune immune
+            Fellow Symptomatic x -> Fellow Symptomatic $ x - 1
+     _ -> case extract g of
+            Fellow Susceptible _ -> Fellow Incubative incub
+            Fellow Immune 0      -> Fellow Susceptible 0
+            Fellow Immune x      -> Fellow Immune $ x - 1
+            Fellow Incubative 0  -> Fellow Symptomatic symptom
+            Fellow Incubative x  -> Fellow Incubative $ x - 1
+            Fellow Symptomatic 0 -> Fellow Immune immune
+            Fellow Symptomatic x -> Fellow Symptomatic $ x - 1
 
-evolve :: Grid KekBool -> Grid KekBool -- TODO
-evolve = extend rule
+evolve :: Double -> Int -> Int -> Int -> Grid Fellow -> Grid Fellow
+evolve p inc sym imm = extend $ rule p inc sym imm
 
-initBoolLZ :: ListZipper KekBool
-initBoolLZ = genericMove id id (KekBool True)
+initLZ :: ListZipper Fellow
+initLZ = genericMove id id (Fellow Susceptible 0)
 
-initBoolGridWithFalseCenter :: Grid KekBool
-initBoolGridWithFalseCenter = gridWrite (KekBool False) initBoolGrid
+initGrid :: Grid Fellow
+initGrid = Grid $ duplicate initLZ
 
-initBoolGrid :: Grid KekBool
-initBoolGrid = Grid $ duplicate initBoolLZ
+initGridWithInfectCenter :: Int -> Grid Fellow
+initGridWithInfectCenter k = gridWrite (Fellow Incubative k) initGrid
 
 gridToList :: Int -> Grid a -> [[a]]
 gridToList n = fmap (toList n) . toList n . unGrid
@@ -120,10 +150,19 @@ printGrid n g = putStrLn $ concatMap (\list -> concatMap (\e -> show e ++ " ") l
 toList :: Int -> ListZipper a -> [a]
 toList n (LZ ls x rs) = reverse (take n ls) ++ [x] ++ take n rs
 
--- | Main function to begin infection.
--- Example: infect 11 initBoolGridWithFalseCenter
-infect :: Int -> Grid KekBool -> IO ()
-infect iterations grid = if iterations == 0 then putStrLn ""
+infect :: Double -> Int -> Int -> Int -> Int -> Int -> Grid Fellow -> IO ()
+infect p inc sym imm iterations size grid = if iterations == 0 then putStrLn ""
   else do
-    printGrid 10 grid
-    infect (iterations - 1) $ evolve grid
+    threadDelay 500000
+    callCommand "tput reset"
+    printGrid size grid
+    infect p inc sym imm (iterations - 1) size $ evolve p inc sym imm grid
+
+startInfect :: Double -> Int -> Int -> Int -> Int -> Int -> IO ()
+startInfect p inc sym imm iter size = infect p inc sym imm iter size $ initGridWithInfectCenter inc
+
+sampleInfect :: IO ()
+sampleInfect = startInfect 0.5 1 1 3 20 10
+
+sample :: Int -> IO ()
+sample x = startInfect 0.5 1 1 3 x 10
