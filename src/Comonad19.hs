@@ -77,29 +77,35 @@ horizontal, vertical :: Grid a -> ListZipper (Grid a)
 horizontal = genericMove left right
 vertical   = genericMove up   down
 
-aliveCount :: [Bool] -> Int
-aliveCount = length . filter id
+kekPredicate :: KekBool -> Bool
+kekPredicate (KekBool True) = True
+kekPredicate (KekBool False) = False
+
+aliveCount :: [KekBool] -> Int
+aliveCount = length . filter kekPredicate
 
 neighbours :: [Grid a -> Grid a]
 neighbours = horizontals ++ verticals ++ liftM2 (.) horizontals verticals
   where horizontals = [left, right]
         verticals   = [up, down]
 
-aliveNeighbours :: Grid Bool -> Int
+aliveNeighbours :: Grid KekBool -> Int
 aliveNeighbours g = aliveCount
                   $ map (\direction -> extract $ direction g) neighbours
 
-rule :: Grid Bool -> Bool
+rule :: Grid KekBool -> KekBool
 rule g = case aliveNeighbours g of -- TODO
-     2 -> extract g
-     3 -> True
-     _ -> False
+     8 -> extract g
+     _ -> KekBool False
 
-evolve :: Grid Bool -> Grid Bool -- TODO
+evolve :: Grid KekBool -> Grid KekBool -- TODO
 evolve = extend rule
 
 initBoolLZ :: ListZipper KekBool
 initBoolLZ = genericMove id id (KekBool True)
+
+initBoolGridWithFalseCenter :: Grid KekBool
+initBoolGridWithFalseCenter = gridWrite (KekBool False) initBoolGrid
 
 initBoolGrid :: Grid KekBool
 initBoolGrid = Grid $ duplicate initBoolLZ
@@ -107,10 +113,17 @@ initBoolGrid = Grid $ duplicate initBoolLZ
 gridToList :: Int -> Grid a -> [[a]]
 gridToList n = fmap (toList n) . toList n . unGrid
 
-printGrid :: Show a => Grid a -> IO ()
-printGrid g = putStrLn $ concatMap (\list -> concatMap (\e -> show e ++ " ") list ++ "\n") list2
-  where list2 = gridToList 10 g
+printGrid :: Show a => Int -> Grid a -> IO ()
+printGrid n g = putStrLn $ concatMap (\list -> concatMap (\e -> show e ++ " ") list ++ "\n") list2
+  where list2 = gridToList n g
 
 toList :: Int -> ListZipper a -> [a]
 toList n (LZ ls x rs) = reverse (take n ls) ++ [x] ++ take n rs
 
+-- | Main function to begin infection.
+-- Example: infect 11 initBoolGridWithFalseCenter
+infect :: Int -> Grid KekBool -> IO ()
+infect iterations grid = if iterations == 0 then putStrLn ""
+  else do
+    printGrid 10 grid
+    infect (iterations - 1) $ evolve grid
