@@ -143,6 +143,9 @@ rule p incub symptom immune g = case infectNeighbours g of
 updFellow :: Fellow -> Fellow
 updFellow (Fellow s c g _) = let (a, ng) = getRandPair g in Fellow s c ng a
 
+updFellowGen :: StdGen -> Fellow -> Fellow
+updFellowGen gen (Fellow s c _ _) = let (a, ng) = getRandPair gen in Fellow s c ng a
+
 getRandPair :: StdGen -> (Float, StdGen)
 getRandPair = randomR (0, 1 :: Float)
 
@@ -151,24 +154,48 @@ evolve p inc sym imm = extend $ rule p inc sym imm
 
 initLZ :: IO (ListZipper Fellow)
 initLZ = do
-  rand <- getStdGen
-  let (a, gen) = getRandPair rand
-  return $ genericMove updFellow updFellow (Fellow Susceptible 0 gen a) -- TODO ?
+  r1 <- newStdGen
+  r2 <- newStdGen
+  r3 <- newStdGen
+  let listL = iterateTailRand r1 $ Fellow Susceptible 0 r1 0
+  let listR = iterateTailRand r3 $ Fellow Susceptible 0 r3 0
+  let (n, g) = getRandPair r2
+  let mid = Fellow Susceptible 0 g n
+  return $ LZ listL mid listR
 
-listFellow :: ListZipper Fellow -> ListZipper Fellow
-listFellow  (LZ a b c) = LZ (fmap updFellow a) (updFellow b) $ fmap updFellow c
+iterateTailRand :: StdGen -> Fellow -> [Fellow]
+iterateTailRand gen = tail . iterateRand gen
 
-duplicateFellow :: ListZipper Fellow -> ListZipper (ListZipper Fellow)
-duplicateFellow = genericMove listFellow listFellow
+iterateRand :: StdGen -> Fellow -> [Fellow]
+iterateRand gen fel = fel : iterateRand newGen newFellow
+  where
+    (newFellow, newGen) = getFellowAndGen gen
+
+getFellowAndGen :: StdGen -> (Fellow, StdGen)
+getFellowAndGen g = (Fellow Susceptible 0 ng a, ng)
+  where (a, ng) = getRandPair g
+
+listFellow :: StdGen -> StdGen -> StdGen -> ListZipper Fellow -> ListZipper Fellow
+listFellow gen1 gen2 gen3 (LZ a b c) = LZ (fmap (updFellowGen gen1) a) (updFellowGen gen2 b) $ fmap (updFellowGen gen3) c
+
+zipperSquared :: ListZipper Fellow -> IO (ListZipper (ListZipper Fellow))
+zipperSquared lz = do
+  r1 <- newStdGen
+  r2 <- newStdGen
+  r3 <- newStdGen
+  r4 <- newStdGen
+  r5 <- newStdGen
+  r6 <- newStdGen
+  return $ genericMove (listFellow r1 r2 r3) (listFellow r4 r5 r6) lz
 
 initGridWithInfectCenter :: Int -> IO (Grid Fellow)
 initGridWithInfectCenter incub = do
   lz <- initLZ
-  let grid = Grid $ duplicateFellow lz
-  gen <- getStdGen
-  let (a, ng) = getRandPair gen
-  let fellow = updFellow (Fellow Incubative incub ng a)
-  return $ gridWrite (updFellow fellow) grid
+  zipSq <- zipperSquared lz
+  let grid = Grid zipSq
+  gen <- newStdGen
+  let fellow = updFellowGen gen $ Fellow Incubative incub gen 0
+  return $ gridWrite fellow grid
 
 gridToList :: Int -> Grid a -> [[a]]
 gridToList n = fmap (toList n) . toList n . unGrid
@@ -196,7 +223,7 @@ startInfect p incub sym imm iter size = do
   infect p incub sym imm iter size grid
 
 sampleInfect :: IO ()
-sampleInfect = startInfect 0.35 1 1 3 20 10
+sampleInfect = startInfect 0.2 1 1 3 20 10
 
 sample :: Int -> IO ()
 sample x = startInfect 0.35 1 1 3 x 10
