@@ -51,11 +51,6 @@ instance Comonad Grid where
   duplicate :: Grid a -> Grid (Grid a)
   duplicate = Grid . fmap horizontal . vertical
 
-incubDays, symptomDays, immunDays :: Int
-incubDays = 3
-symptomDays = 3
-immunDays = 3
-
 iterateTail :: (a -> a) -> a -> [a]
 iterateTail f = tail . iterate f
 
@@ -110,13 +105,30 @@ neighbours = horizontals ++ verticals ++ liftM2 (.) horizontals verticals
 infectNeighbours :: Grid Fellow -> Int
 infectNeighbours g = infectCount $ map (\direction -> extract $ direction g) neighbours
 
-fellowPredicate :: Float -> Fellow -> Bool
-fellowPredicate p (Fellow Incubative _ _ n)  = n <= p
-fellowPredicate p (Fellow Symptomatic _ _ n) = n <= p
-fellowPredicate _ Fellow {}                  = False
+infectPredicate :: Float -> Fellow -> Bool
+infectPredicate p (Fellow _ _ _ n)  = n <= p
 
-decideInfection :: Float -> Grid Fellow -> Bool
-decideInfection p g = any (fellowPredicate p . (\ direction -> extract $ direction g)) neighbours
+-- | Generate list of the given size updating StdGen in each next Fellow
+getRandList :: Int -> Fellow -> [Fellow]
+getRandList 0 (Fellow s c gen _) = let (newN, newGen) = getRandPairSnd gen in [Fellow s c newGen newN]
+getRandList k fel@(Fellow s c gen _) = fel : getRandList (k - 1) (Fellow s c newGen newN)
+  where
+    (newN, newGen) = getRandPairSnd gen
+
+-- | Change status of the given Fellow to Incubative with given days
+infectFellow :: Fellow -> Int -> Fellow
+infectFellow (Fellow _ _ g n) incub = Fellow Incubative incub g n
+
+-- | Decide infection of the given Fellow considering
+-- count of infected neighbours and probability of infection.
+-- p.s. k can't be greater than 8 so imho we can use `last` and `init` functions
+decideInfection :: Float -> Int -> Fellow -> Int -> Fellow
+decideInfection p k fel incub =  let list' = tail $ getRandList (k + 1) fel in
+  let newFel = last list' in
+  let list = init list' in
+  if any (infectPredicate p) list
+  then infectFellow newFel incub
+  else newFel
 
 rule :: Float -> Int -> Int -> Int -> Grid Fellow -> Fellow
 rule p incub symptom immune g = case infectNeighbours g of
@@ -124,34 +136,33 @@ rule p incub symptom immune g = case infectNeighbours g of
             Fellow Susceptible x r n -> Fellow Susceptible x r n
             Fellow Immune 0 r n      -> Fellow Susceptible 0 r n
             Fellow Immune x r n      -> Fellow Immune (x - 1) r n
-            Fellow Incubative 0 r _  -> let (a, nr) = getRandPair r in Fellow Symptomatic symptom nr a
-            Fellow Incubative x r _  -> let (a, nr) = getRandPair r in Fellow Incubative (x - 1) nr a
-            Fellow Symptomatic 0 r n -> Fellow Immune immune r n
-            Fellow Symptomatic x r _ -> let (a, nr) = getRandPair r in Fellow Symptomatic (x - 1) nr a
-     _ -> case extract g of
-            Fellow Immune 0 r n      -> Fellow Susceptible 0 r n
-            Fellow Immune x r n      -> Fellow Immune (x - 1) r n
-            Fellow Incubative 0 r _  -> let (a, nr) = getRandPair r in Fellow Symptomatic symptom nr a
-            Fellow Incubative x r _  -> let (a, nr) = getRandPair r in Fellow Incubative (x - 1) nr a
+            Fellow Incubative 0 r n  -> Fellow Symptomatic symptom r n
+            Fellow Incubative x r n  -> Fellow Incubative (x - 1) r n
             Fellow Symptomatic 0 r n -> Fellow Immune immune r n
             Fellow Symptomatic x r n -> Fellow Symptomatic (x - 1) r n
-            Fellow Susceptible x r n -> if decideInfection p g then
-                                            let (a, nr) = getRandPair r in Fellow Incubative incub nr a
-                                        else
-                                            Fellow Susceptible x r n
+     k -> case extract g of
+            Fellow Immune 0 r n      -> Fellow Susceptible 0 r n
+            Fellow Immune x r n      -> Fellow Immune (x - 1) r n
+            Fellow Incubative 0 r n  -> Fellow Symptomatic symptom r n
+            Fellow Incubative x r n  -> Fellow Incubative (x - 1) r n
+            Fellow Symptomatic 0 r n -> Fellow Immune immune r n
+            Fellow Symptomatic x r n -> Fellow Symptomatic (x - 1) r n
+            Fellow Susceptible x r n -> decideInfection p k (Fellow Susceptible x r n) incub
 
-updFellow :: Fellow -> Fellow
-updFellow (Fellow s c g _) = let (a, ng) = getRandPair g in Fellow s c ng a
+getRandPairFst :: StdGen -> (Float, StdGen)
+getRandPairFst gen = randomR (0, 1 :: Float) newGen
+  where
+    newGen = fst $ split gen
 
-updFellowGen :: StdGen -> Fellow -> Fellow
-updFellowGen gen (Fellow s c _ _) = let (a, ng) = getRandPair gen in Fellow s c ng a
-
-getRandPair :: StdGen -> (Float, StdGen)
-getRandPair = randomR (0, 1 :: Float)
+getRandPairSnd :: StdGen -> (Float, StdGen)
+getRandPairSnd gen = randomR (0, 1 :: Float) newGen
+  where
+    newGen = snd $ split gen
 
 evolve :: Float -> Int -> Int -> Int -> Grid Fellow -> Grid Fellow
 evolve p inc sym imm = extend $ rule p inc sym imm
 
+-- | Return ListZipper containing (pseudo)random Fellows
 initLZ :: IO (ListZipper Fellow)
 initLZ = do
   r1 <- newStdGen
@@ -159,43 +170,41 @@ initLZ = do
   r3 <- newStdGen
   let listL = iterateTailRand r1 $ Fellow Susceptible 0 r1 0
   let listR = iterateTailRand r3 $ Fellow Susceptible 0 r3 0
-  let (n, g) = getRandPair r2
+  let (n, g) = getRandPairFst r2
   let mid = Fellow Susceptible 0 g n
   return $ LZ listL mid listR
 
+-- | Return infinite list of Fellows using given StdGen
 iterateTailRand :: StdGen -> Fellow -> [Fellow]
 iterateTailRand gen = tail . iterateRand gen
 
+-- | Helper function only for `iterateTailRand`
 iterateRand :: StdGen -> Fellow -> [Fellow]
-iterateRand gen fel = fel : iterateRand newGen newFellow
+iterateRand gen fel@(Fellow s c _ _) = fel : iterateRand newGen (Fellow s c newGen newN)
   where
-    (newFellow, newGen) = getFellowAndGen gen
+    (newN, newGen) = getRandPairFst gen
 
-getFellowAndGen :: StdGen -> (Fellow, StdGen)
-getFellowAndGen g = (Fellow Susceptible 0 ng a, ng)
-  where (a, ng) = getRandPair g
+-- | Update given Fellow with its StdGen
+updFellowGenFst, updFellowGenSnd :: Fellow -> Fellow
+updFellowGenFst (Fellow s c gen _) = let (newN, newGen) = getRandPairFst gen in Fellow s c newGen newN
+updFellowGenSnd (Fellow s c gen _) = let (newN, newGen) = getRandPairSnd gen in Fellow s c newGen newN
 
-listFellow :: StdGen -> StdGen -> StdGen -> ListZipper Fellow -> ListZipper Fellow
-listFellow gen1 gen2 gen3 (LZ a b c) = LZ (fmap (updFellowGen gen1) a) (updFellowGen gen2 b) $ fmap (updFellowGen gen3) c
+-- | `listLeft` and `listRight` alternative for Fellows
+listFellowFst, listFellowSnd :: ListZipper Fellow -> ListZipper Fellow
+listFellowFst (LZ a b c) = LZ (fmap updFellowGenFst a) (updFellowGenFst b) $ fmap updFellowGenFst c
+listFellowSnd (LZ a b c) = LZ (fmap updFellowGenSnd a) (updFellowGenSnd b) $ fmap updFellowGenSnd c
 
-zipperSquared :: ListZipper Fellow -> IO (ListZipper (ListZipper Fellow))
-zipperSquared lz = do
-  r1 <- newStdGen
-  r2 <- newStdGen
-  r3 <- newStdGen
-  r4 <- newStdGen
-  r5 <- newStdGen
-  r6 <- newStdGen
-  return $ genericMove (listFellow r1 r2 r3) (listFellow r4 r5 r6) lz
+--zipperSquared :: ListZipper Fellow -> IO (ListZipper (ListZipper Fellow))
+--zipperSquared lz = return $ genericMove listFellow listFellow lz
 
 initGridWithInfectCenter :: Int -> IO (Grid Fellow)
 initGridWithInfectCenter incub = do
   lz <- initLZ
-  zipSq <- zipperSquared lz
+  let zipSq = genericMove listFellowFst listFellowSnd lz
   let grid = Grid zipSq
   gen <- newStdGen
-  let fellow = updFellowGen gen $ Fellow Incubative incub gen 0
-  return $ gridWrite fellow grid
+  let (newN, newGen) = getRandPairFst gen
+  return $ gridWrite (Fellow Incubative incub newGen newN) grid
 
 gridToList :: Int -> Grid a -> [[a]]
 gridToList n = fmap (toList n) . toList n . unGrid
@@ -223,7 +232,7 @@ startInfect p incub sym imm iter size = do
   infect p incub sym imm iter size grid
 
 sampleInfect :: IO ()
-sampleInfect = startInfect 0.2 1 1 3 20 10
+sampleInfect = startInfect 0.1 5 5 10 100 10
 
 sample :: Int -> IO ()
 sample x = startInfect 0.35 1 1 3 x 10
