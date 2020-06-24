@@ -254,10 +254,10 @@ infect p inc sym imm iterations size grid = if iterations == 0 then putStrLn ""
 -- `p` - probability of infection
 -- `incub` - Int in range [0; +inf) - incubation period (days)
 -- `symptom` - Int in range [1; +inf) - symptomatic period (days)
--- `immune` - Int in range [0; +inf) - immunity duration (days)
+-- `immune` - Int in range [1; +inf) - immunity duration (days)
 -- `iters` - Int in range [0; +inf) - amount of iterations (days) to execute
 -- `size` - Int in range [0; +inf) - size of the Grid to print
--- Actual Grid will be square with size equals (2 * `size` + 1)
+-- Printed grid will be square with size equals (2 * `size` + 1)
 -- (To get one step of simulation just pass `iters` equals to 1)
 startInfect :: Float -> Int -> Int -> Int -> Int -> Int -> IO ()
 startInfect p incub symptom immune iters size = do
