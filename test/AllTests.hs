@@ -1,13 +1,12 @@
-{-# LANGUAGE NumericUnderscores #-}
-
 module AllTests where
 
+import           CHT              (getCHT, newCHT, putCHT, sizeCHT)
 import           Lenses
 import           Task1
 
+import           Control.Monad    (forM_)
 import           Test.Tasty
 import           Test.Tasty.Hspec
-import qualified CHT
 
 allTestsTree :: IO TestTree
 allTestsTree = testSpec "unit-tests" allTests
@@ -24,6 +23,7 @@ testDir1 = Dir {_name = "test", _contents = [File {_name = "file"}, File {_name 
 testDir2 :: FS
 testDir2 = Dir {_name = "test", _contents = [File {_name = "file.hs"}, File {_name = "file2.cpp"}, File {_name = "file3.swift"}]}
 
+-- | Some FS tree with empty directory
 testDir3 :: FS
 testDir3 = Dir {_name = "kk", _contents = [Dir {_name = "2", _contents = [] }]}
 
@@ -65,11 +65,22 @@ allTests = do
       rmEmptyDir "notExist" testDir0 `shouldBe` testDir0
       rmEmptyDir "2" testDir3 `shouldBe` over contents (const []) testDir3
   describe "HashTable" $ do
-    it "insert+get+size" $ do
-      ht <- CHT.newCHT
-      CHT.putCHT "ke" (1337 :: Int) ht
-      size <- CHT.sizeCHT ht
-      size `shouldBe` 1
-      CHT.putCHT "ku" 69 ht
-      secondValue <- CHT.getCHT "ku" ht
+    it "empty size" $ do
+      ht <- newCHT
+      size <- sizeCHT ht
+      size `shouldBe` 0
+    it "put-get" $ do
+      ht <- newCHT
+      putCHT "ke" (1337 :: Int) ht
+      putCHT "ku" 69 ht
+      secondValue <- getCHT "ku" ht
       secondValue `shouldBe` Just 69
+    it "rehash" $ do
+      ht <- newCHT
+      let list = [0..11::Int]
+      forM_ list (\i -> putCHT i (1337 :: Int) ht)
+      putCHT 12 12 ht
+      val <- getCHT 12 ht
+      val `shouldBe` Just 12
+      valOld <- getCHT 7 ht
+      valOld `shouldBe` Just 1337
