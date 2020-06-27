@@ -1,12 +1,18 @@
 module Main where
 
-import qualified Task1          as T (Point (..), doubleArea, perimeter)
-import qualified Task1Naive     as N (Point (..), doubleArea, perimeter)
+import           ConcurrentHashTable
+import qualified Control.Concurrent.Thread as Th
+import qualified Task1                     as T (Point (..), doubleArea,
+                                                 perimeter)
+import qualified Task1Naive                as N (Point (..), doubleArea,
+                                                 perimeter)
 
+import           Control.Monad             (forM_)
 import           Criterion.Main
+import           System.Random
 
 main :: IO ()
-main = defaultMain [perimeterBenchmark, areaBenchmark]
+main = defaultMain [perimeterBenchmark, areaBenchmark, chtBenchmark]
 
 generatePolygonNaive :: [N.Point]
 generatePolygonNaive = [N.Point x 0 | x <- [0..5000000]] ++ [N.Point 5000000 y | y <- [0..5000000]]
@@ -35,3 +41,30 @@ perimeterBenchmark = bgroup "Perimeter Benchmark" [benchPerimeter, benchPerimete
 
 areaBenchmark :: Benchmark
 areaBenchmark = bgroup "Area Benchmark" [benchArea, benchAreaNaive]
+
+chtBenchmark :: Benchmark
+chtBenchmark = bench "Hashtable: read/insert 10^5 elements via 4 threads" $ nfIO stressCht
+-- time                 10.26 s    (7.048 s .. 12.93 s)
+
+stressCht :: IO ()
+stressCht = do
+  ht <- newCHT
+  let lists = [[0..25000::Int], [0..25000], [0..25000], [0..25000]]
+  forM_ lists $ \list -> (do
+    (_, res') <- Th.forkIO $ do
+      forM_ list $ \_ -> performRandAction ht
+    res <- res'
+    Th.result res)
+
+performRandAction :: CHT Int Int -> IO ()
+performRandAction ht = do
+  op <- randomRIO(False, True)
+  if op
+  then do
+    someKey <- randomRIO(-100000, 100000::Int)
+    someValue <- randomRIO(-100000, 100000::Int)
+    putCHT someKey someValue ht
+  else do
+    someKey <- randomRIO(-100000, 100000::Int)
+    _ <- getCHT someKey ht
+    return ()

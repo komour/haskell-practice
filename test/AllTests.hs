@@ -1,10 +1,13 @@
 module AllTests where
 
-import           ConcurrentHashTable (getCHT, newCHT, putCHT, sizeCHT)
+import           ConcurrentHashTable       (getCHT, newCHT, putCHT, sizeCHT)
 import           Lenses
 import           Task1
 
-import           Control.Monad       (forM_)
+import           Control.Concurrent
+import qualified Control.Concurrent.Thread as Th
+import           Control.Exception.Base
+import           Control.Monad             (forM, forM_)
 import           Test.Tasty
 import           Test.Tasty.Hspec
 
@@ -64,7 +67,7 @@ allTests = do
       rmEmptyDir "1" testDir0 `shouldBe` testDir0
       rmEmptyDir "notExist" testDir0 `shouldBe` testDir0
       rmEmptyDir "2" testDir3 `shouldBe` over contents (const []) testDir3
-  describe "HashTable" $ do
+  describe "Hashtable" $ do
     it "empty size" $ do
       ht <- newCHT
       size <- sizeCHT ht
@@ -84,3 +87,25 @@ allTests = do
       val `shouldBe` Just 12
       valOld <- getCHT 7 ht
       valOld `shouldBe` Just 1337
+
+--    This test checks CHT resistance to asynchronous exceptions.
+--    We throw exception while inserting the elements and then check
+--    if condition of the CHT remains correct.
+--    It's correct if there aren't any new insertions or artifacts in the old ones
+    it "async exceptions" $ do
+      ht <- newCHT
+      (thId, res') <- Th.forkIO $ do
+        threadDelay 10
+        forM_ [1..100] $ \i -> putCHT (i::Int) (i::Int) ht
+      threadDelay 10
+      throwTo thId ThreadKilled
+      res <- res'
+      handle intrHandler $ Th.result res
+      vals' <- forM [1..100] $ \k -> getCHT k ht
+      let vals = vals' `zip` [1..100]
+      forM_ vals $ \v -> case v of
+        (Nothing, anyVal) -> v `shouldBe` (Nothing, anyVal)
+        (Just _, i)       -> v `shouldBe` (Just i, i)
+
+intrHandler :: AsyncException -> IO ()
+intrHandler e = putStrLn $ "Caught async exception: " <> show e

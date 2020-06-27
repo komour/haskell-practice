@@ -3,10 +3,12 @@ module ConcurrentHashTable
   , sizeCHT
   , getCHT
   , putCHT
+  , CHT
   ) where
 
 import           Control.Concurrent.STM (STM, TVar, atomically, newTVar,
-                                         readTVar, writeTVar)
+                                         readTVar, writeTVar, readTVarIO)
+import           Control.Exception.Base (mask_)
 import           Control.Monad          (forM, forM_)
 import           Data.Hashable          (Hashable, hash)
 import           Data.Vector            ((!))
@@ -37,19 +39,19 @@ fillingRate = 0.5
 
 -- | Initialize an empty hashtable
 newCHT :: IO (CHT k v)
-newCHT = atomically $ do
+newCHT = mask_ $ atomically $ do
   newSize <- newTVar 0
   newVector <- V.replicateM initialSize (newTVar []) >>= newTVar
   return $ CHT newVector newSize
 
 -- | Returns size of the given hashtable
 sizeCHT :: CHT k v -> IO Int
-sizeCHT (CHT _ tsize) = atomically $ readTVar tsize
+sizeCHT (CHT _ tsize) = mask_ $ readTVarIO tsize
 
 -- | Returns Just value in the given CHT with the given key
 -- or Nothing if there is no such key
-getCHT :: (Hashable k, Eq k) => Eq v => k -> CHT k v -> IO (Maybe v)
-getCHT key (CHT tvector _) = atomically $ do
+getCHT :: (Hashable k, Eq k) => k -> CHT k v -> IO (Maybe v)
+getCHT key (CHT tvector _) = mask_ $ atomically $ do
   vector <- readTVar tvector
   cell <- getVectorCell vector key
   curList <- readTVar cell
@@ -67,8 +69,8 @@ needToDoubleCap filledSize capacity =
   (fromIntegral filledSize / fromIntegral capacity) >= fillingRate
 
 -- | Insert given pair (key, value) to the given CHT, resize CHT if needed
-putCHT :: (Hashable k, Eq k) => Eq v => k -> v -> CHT k v -> IO ()
-putCHT newKey newValue (CHT tvector tsize) = atomically $ do
+putCHT :: (Hashable k, Eq k) => k -> v -> CHT k v -> IO ()
+putCHT newKey newValue (CHT tvector tsize) = mask_ $ atomically $ do
   curSize <- readTVar tsize
   vector <- readTVar tvector
   cell <- getVectorCell vector newKey
