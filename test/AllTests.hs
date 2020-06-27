@@ -1,10 +1,10 @@
 module AllTests where
 
-import           CHT              (getCHT, newCHT, putCHT, sizeCHT)
+import           ConcurrentHashTable (getCHT, newCHT, putCHT, sizeCHT)
 import           Lenses
 import           Task1
 
-import           Control.Monad    (forM_)
+import           Control.Monad       (forM_)
 import           Test.Tasty
 import           Test.Tasty.Hspec
 
