@@ -21,6 +21,7 @@ library
                      , Task1Naive
                      , Lenses
                      , Comonad19
+                     , CHT
   ghc-options:         -Wall
   build-depends:       base >=4.7 && <5
                      , microlens
@@ -30,6 +31,9 @@ library
                      , comonad
                      , process
                      , random
+                     , stm
+                     , hashable
+                     , vector
   default-language:    Haskell2010
 
 test-suite hw3-tests

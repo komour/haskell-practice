@@ -1,3 +1,5 @@
+{-# LANGUAGE NumericUnderscores #-}
+
 module AllTests where
 
 import           Lenses
@@ -5,6 +7,7 @@ import           Task1
 
 import           Test.Tasty
 import           Test.Tasty.Hspec
+import qualified CHT
 
 allTestsTree :: IO TestTree
 allTestsTree = testSpec "unit-tests" allTests
@@ -61,3 +64,12 @@ allTests = do
       rmEmptyDir "1" testDir0 `shouldBe` testDir0
       rmEmptyDir "notExist" testDir0 `shouldBe` testDir0
       rmEmptyDir "2" testDir3 `shouldBe` over contents (const []) testDir3
+  describe "HashTable" $ do
+    it "insert+get+size" $ do
+      ht <- CHT.newCHT
+      CHT.putCHT "ke" (1337 :: Int) ht
+      size <- CHT.sizeCHT ht
+      size `shouldBe` 1
+      CHT.putCHT "ku" 69 ht
+      secondValue <- CHT.getCHT "ku" ht
+      secondValue `shouldBe` Just 69
